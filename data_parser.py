@@ -30,7 +30,7 @@ async def parse_all():
     category = ""
     async with aiohttp.ClientSession() as session:
         for page in pages:
-            async with session.get(BASE_URL + page.get("href"), headers=HEADERS) as response:
+            async with session.get(BASE_URL + page.get("href"), headers=HEADERS, allow_redirects=True) as response:
                 r = await aiohttp.StreamReader.read(response.content)
                 soup = bs(r, "html.parser")
                 category_tag1 = soup.find("a", {"data-tracking-label": "categories-top-more-0"})

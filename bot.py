@@ -1,6 +1,6 @@
 import telebot
 from telebot import types
-from pages_parser import Parent
+from pages_parser import Page
 
 bot = telebot.TeleBot("TOKEN")
 
@@ -12,12 +12,12 @@ def start(message):
 @bot.message_handler()
 def search(message):
     text = message.text
-    item = Parent(text)
+    item = Page(text)
     if item.get_img():
-        bot.send_photo(message.chat.id, item.get_img(), parse_mode='html')
-    for block in item.get_blocks():
-        if block:
-            bot.send_message(message.chat.id, block, parse_mode='html') 
+        bot.send_photo(message.chat.id, item.get_img(), parse_mode='html', caption=item.get_blocks()[0])
+    for block in range(1, len(item.get_blocks())):
+        if item.get_blocks()[block]:
+            bot.send_message(message.chat.id, item.get_blocks()[block], parse_mode='html') 
 
 
 if __name__ == "__main__":

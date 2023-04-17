@@ -3,16 +3,17 @@ import asyncio
 from bs4 import BeautifulSoup as bs
 from fuzzywuzzy import process
 from data_parser import read_pages, BASE_URL, HEADERS
+import re
 
 data_from_file = read_pages()
 
-class Parent:
+class Page:
     def __init__(self, name):
         self._name = name
         self._title = ""
         self._category = ""
         self._url = ""
-        self._blocks = []
+        self._blocks = [""]
         self._img = None
         self.define_base_info()
         self.execute_parsing()
@@ -64,38 +65,54 @@ class Parent:
                 if not img:
                     img = soup.find("img", {"class": "thumbimage"})
                 self._img = img.get("src") if img else None
-                headers = soup.find("div", {"class": "mw-parser-output"}).find_all("h2")
-                page_cut = soup.find("div", {"class": "mw-parser-output"})
-                self._blocks = ["" for _ in headers]
-                self._blocks.append("")
+                aside = soup.find("aside", {"role": "region"})
+                if not aside:
+                    headers_below = soup.find("div", {"class": "mw-parser-output"}).find_all_next("h2")
+                    page_cut = soup.find("div", {"class": "mw-parser-output"})
+                    self._blocks[0] = self.parse_block(page_cut)
+                else:
+                    headers_below = aside.find_all_next("h2")
+                    self._blocks[0] = "<b><i><u>" + self._title + "</u></i></b>\n\n"
+                headers_above = soup.find("div", {"class": "license-description"}).find_all_previous("h2")
+                headers = []
+                for element in headers_below:
+                    if element in headers_above:
+                        headers.append(element)
+                self._blocks += ["" for _ in headers]    
+                self._blocks.append("")    
                 description_div = soup.find("div", {"class": "io"})
                 if description_div:
                     self._blocks.append("")
                     description = description_div.find_all("i")
-                    description_str = f"<b><u><i>{self._title}</i></u></b>\n\n<b>Описание:</b>\n"
+                    description_str = "<b>Описание:</b>\n"
                     for text in description:
                         description_str += "<i>" + text.text.strip() + "</i> "
                 else:
-                    description_str = f"<b><i><u>{self._title}</u></i></b>"
-                self._blocks[0] = description_str
+                    description_str = ""
+                self._blocks[0] += description_str
                 for header in range(len(headers)):
-                    if headers[header].get("id") != "Галерея" and headers[header]("id") != "Ссылки":
+                    if headers[header].get("id") != "Галерея" and headers[header]("id") != "Ссылки" and headers[header].text != "Содержание":
                         page_cut = headers[header].find_all_next()
                         str = self.parse_block(page_cut, headers[header].text)
-                        self._blocks[header+1] = str
+                        self._blocks[header+2] = str
     
-    def parse_block(self, page_cut, header):
-        str = "<b>" + header + "</b>\n"
+    def parse_block(self, page_cut, header=""):
+        str = "<b>" + header + ":</b>\n" if header else ""
         for tag in page_cut:
-            if tag.name == "h2" or tag.name == "table" or tag.name == "div":
+            tmp = tag.text.strip() if tag.text else ""
+            tmp = tmp.replace('<', '&lt;')
+            tmp = tmp.replace('<', '&gt;')
+            tmp = tmp.replace('<', '&amp;')
+            if tag.name == "h2" or tag.name == "table" or tag.name == "div" or tag.parent.name == "aside":
                 break
             elif tag.name == "li" and tag.name != "ul":
-                str += "- " + tag.text + "\n"
-            elif tag.name == "a" or tag.name == "ul" or tag.name == "b":
+                str += "- " + tmp + "\n\n"
+            elif tag.name == "a" or tag.name == "ul" or tag.name == "b" or tag.name == "sup" or tag.name == "span":
                 continue
             elif tag.name == "h3":
-                str += "<b>" + tag.text + "</b>\n"
+                str += "<b><u>" + tmp + "</u></b>\n"
             else:
-                str += tag.text + " "
-        return str
+                str = str + tmp + " " if tmp else str
+        str = re.sub(r'\[[^]]*\]', '', str)
+        return str if str != "<b>" + header + ":</b>\n" else ""
 
