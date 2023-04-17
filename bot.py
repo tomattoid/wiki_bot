@@ -9,6 +9,11 @@ def start(message):
     msg = f'Привет, {message.from_user.first_name}! Что бы ты хотел найти?'
     bot.send_message(message.chat.id, msg, parse_mode='html')
 
+@bot.message_handler(commands=['help'])
+def start(message):
+    msg = 'Просто введи название статьи (например, название предмета или умения) которая тебя интересует'
+    bot.send_message(message.chat.id, msg, parse_mode='html')
+
 @bot.message_handler()
 def search(message):
     text = message.text
